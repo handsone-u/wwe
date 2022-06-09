@@ -16,12 +16,17 @@ public class V0Group extends BaseEntity {
     @Id @Column(name = "GROUP_ID")
     private Integer id;
 
-    @OneToMany(mappedBy = "", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     List<V0Member> members = new ArrayList<>();
 
     public void addMember(V0Member member) {
         this.members.add(member);
         member.setGroup(this);
+    }
+
+    public void removeMember(V0Member member) {
+        this.members.remove(member);
+        member.setGroup(null);
     }
 
     public V0Group(Integer id) {

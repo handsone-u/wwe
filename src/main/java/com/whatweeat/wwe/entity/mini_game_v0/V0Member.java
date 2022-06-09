@@ -1,7 +1,6 @@
 package com.whatweeat.wwe.entity.mini_game_v0;
 
 import com.whatweeat.wwe.entity.BaseEntity;
-import com.whatweeat.wwe.entity.enums.ExpenseName;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -28,54 +27,44 @@ public class V0Member extends BaseEntity {
     private Boolean rice;
     private Boolean noodle;
     private Boolean soup;
-    private Boolean healthy;
-    private Boolean instant;
+    private Boolean hangover;
+    private Boolean greasy;
+    private Boolean health;
     private Boolean alcohol;
-
-    @Enumerated
-    private ExpenseName expenseName;
-
-    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL)
-    private final Set<V0Flavor> flavors = new HashSet<>();
-
-    @OneToMany(mappedBy = "member",cascade = CascadeType.ALL)
-    private final Set<V0Exclude> excludes = new HashSet<>();
+    private Boolean instant;
+    private Boolean spicy;
+    private Boolean rich;
+    private Boolean other;
 
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL)
-    private final Set<V0Nation> nations = new HashSet<>();
+    private Set<V0Nation> nations = new HashSet<>();
 
-    public void addFlavor(V0Flavor flavor) {
-        this.flavors.add(flavor);
-        flavor.setMember(this);
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL)
+    private Set<V0Exclude> excludes = new HashSet<>();
+
+    public V0Member(String token, Boolean complete, Boolean rice, Boolean noodle, Boolean soup, Boolean hangover, Boolean greasy, Boolean health, Boolean alcohol, Boolean instant, Boolean spicy, Boolean rich, Boolean other) {
+        this.token = token;
+        this.complete = complete;
+        this.rice = rice;
+        this.noodle = noodle;
+        this.soup = soup;
+        this.hangover = hangover;
+        this.greasy = greasy;
+        this.health = health;
+        this.alcohol = alcohol;
+        this.instant = instant;
+        this.spicy = spicy;
+        this.rich = rich;
+        this.other = other;
     }
-    public void addExclude(V0Exclude exclude) {
-        this.excludes.add(exclude);
-        exclude.setMember(this);
-    }
+
     public void addNation(V0Nation nation) {
         this.nations.add(nation);
         nation.setMember(this);
     }
 
-    public V0Member(String token, V0Group group) {
-        this(token, false, group);
-    }
-
-    public V0Member(String token, Boolean complete, V0Group group) {
-        this.token = token;
-        this.complete = complete;
-        this.group = group;
-    }
-
-    public V0Member(String token, Boolean complete, V0Group group, Boolean rice, Boolean noodle, Boolean soup,
-                    Boolean healthy, Boolean instant, Boolean alcohol, ExpenseName expenseName) {
-        this(token, complete, group);
-        this.rice = rice;
-        this.noodle = noodle;
-        this.soup = soup;
-        this.healthy = healthy;
-        this.instant = instant;
-        this.alcohol = alcohol;
-        this.expenseName = expenseName;
+    public void addExclude(V0Exclude exclude) {
+        this.excludes.add(exclude);
+        exclude.setMember(this);
     }
 }

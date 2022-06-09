@@ -1,9 +1,12 @@
 package com.whatweeat.wwe.service.mini_game_v0;
 
-import com.whatweeat.wwe.dto.MiniGameResultDTO;
+import com.whatweeat.wwe.controller.request.ResultSubmission;
 import com.whatweeat.wwe.entity.enums.FlavorName;
 import com.whatweeat.wwe.entity.enums.NationName;
-import com.whatweeat.wwe.entity.mini_game_v0.*;
+import com.whatweeat.wwe.entity.mini_game_v0.V0Exclude;
+import com.whatweeat.wwe.entity.mini_game_v0.V0Group;
+import com.whatweeat.wwe.entity.mini_game_v0.V0Member;
+import com.whatweeat.wwe.entity.mini_game_v0.V0Nation;
 import com.whatweeat.wwe.repository.mini_game_v0.V0GroupRepository;
 import com.whatweeat.wwe.repository.mini_game_v0.V0MemberRepository;
 import com.whatweeat.wwe.service.MiniGameService;
@@ -34,38 +37,29 @@ public class MiniGameV0ServiceImpl implements MiniGameService {
         return v0Group.getId();
     }
 
-    public V0Group saveResult(MiniGameResultDTO dto) {
-        V0Group group = v0GroupRepository.findById(dto.getPin())
+    public V0Group saveResult(ResultSubmission dto) {
+        V0Group group = v0GroupRepository.findById(dto.getPinNumber())
                 .orElseThrow(() -> new RuntimeException());
 
         return saveGroup(dto, group);
     }
 
-    private V0Group saveGroup(MiniGameResultDTO dto, V0Group group) {
-        V0Member member = new V0Member(dto.getToken(), true, group,
-                dto.getRice(), dto.getNoodle(), dto.getSoup(), dto.getHealthy(), dto.getInstant(), dto.getAlcohol(),
-                dto.getExpenseName());
+    private V0Group saveGroup(ResultSubmission dto, V0Group group) {
+        V0Member member = dto.toV0Member();
         member = saveMember(dto, member);
 
         group.addMember(member);
         return v0GroupRepository.save(group);
     }
 
-    private V0Member saveMember(MiniGameResultDTO dto, V0Member member) {
+    private V0Member saveMember(ResultSubmission dto, V0Member member) {
         log.info("MEMBER SAVE Token = [{}]", member.getToken());
-        saveFlavors(dto.getFlavorNames(), member);
-        saveExcludes(dto.getExcludeNames(), member);
-        saveNations(dto.getNationNames(), member);
+        saveExcludes(dto.getDislikedFoods(), member);
+        saveNations(dto.getGameAnswer().getNation(), member);
 
         return v0MemberRepository.save(member);
     }
 
-    private void saveFlavors(Set<FlavorName> flavorNames, V0Member member) {
-        for (FlavorName flavorName : flavorNames) {
-            V0Flavor flavor = new V0Flavor(member, flavorName);
-            member.addFlavor(flavor);
-        }
-    }
     private void saveExcludes(Set<FlavorName> excludeNames, V0Member member) {
         for (FlavorName excludeName : excludeNames) {
             V0Exclude exclude = new V0Exclude(member, excludeName);
@@ -92,6 +86,15 @@ public class MiniGameV0ServiceImpl implements MiniGameService {
                 .orElseThrow(() -> new RuntimeException());
 
         v0GroupRepository.delete(v0Group);
+    }
+
+    public void deleteMember(String token, Integer pin) {
+        V0Group v0Group = v0GroupRepository.findById(pin)
+                .orElseThrow(() -> new RuntimeException());
+        V0Member v0Member = v0MemberRepository.findByTokenAndGroup(token, v0Group)
+                .orElseThrow(() -> new RuntimeException());
+
+        v0Group.removeMember(v0Member);
     }
 
     public boolean pinValidCheck(int id) {
