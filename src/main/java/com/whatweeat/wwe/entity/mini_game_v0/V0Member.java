@@ -17,7 +17,6 @@ public class V0Member extends BaseEntity {
     private Long id;
 
     private String token;
-
     private Boolean complete;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -34,15 +33,14 @@ public class V0Member extends BaseEntity {
     private Boolean instant;
     private Boolean spicy;
     private Boolean rich;
-    private Boolean other;
 
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL)
-    private Set<V0Nation> nations = new HashSet<>();
+    private final Set<V0Nation> nations = new HashSet<>();
 
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL)
-    private Set<V0Exclude> excludes = new HashSet<>();
+    private final Set<V0Exclude> excludes = new HashSet<>();
 
-    public V0Member(String token, Boolean complete, Boolean rice, Boolean noodle, Boolean soup, Boolean hangover, Boolean greasy, Boolean health, Boolean alcohol, Boolean instant, Boolean spicy, Boolean rich, Boolean other) {
+    public V0Member(String token, Boolean complete, Boolean rice, Boolean noodle, Boolean soup, Boolean hangover, Boolean greasy, Boolean health, Boolean alcohol, Boolean instant, Boolean spicy, Boolean rich) {
         this.token = token;
         this.complete = complete;
         this.rice = rice;
@@ -55,7 +53,6 @@ public class V0Member extends BaseEntity {
         this.instant = instant;
         this.spicy = spicy;
         this.rich = rich;
-        this.other = other;
     }
 
     public void addNation(V0Nation nation) {

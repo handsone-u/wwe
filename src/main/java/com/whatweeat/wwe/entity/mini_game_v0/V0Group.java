@@ -17,7 +17,7 @@ public class V0Group extends BaseEntity {
     private Integer id;
 
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
-    List<V0Member> members = new ArrayList<>();
+    private final List<V0Member> members = new ArrayList<>();
 
     public void addMember(V0Member member) {
         this.members.add(member);

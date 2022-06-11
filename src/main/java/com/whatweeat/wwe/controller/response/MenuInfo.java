@@ -32,7 +32,6 @@ public class MenuInfo {
     private ExpenseName expenseName;
 
     private final Set<FlavorName> flavors = new HashSet<>();
-    private final Set<FlavorName> excludes = new HashSet<>();
     private final Set<NationName> nations = new HashSet<>();
 
     static public MenuInfo ofMenuInfo(Menu menu) {
@@ -53,8 +52,6 @@ public class MenuInfo {
 
         menu.getMiniGameV0().getFlavors()
                 .forEach(f -> result.flavors.add(f.getFlavorName()));
-        menu.getMiniGameV0().getExcludeFilters()
-                .forEach(e -> result.excludes.add(e.getExcludeName()));
         menu.getMiniGameV0().getNations()
                 .forEach(n -> result.nations.add(n.getNationName()));
         return result;

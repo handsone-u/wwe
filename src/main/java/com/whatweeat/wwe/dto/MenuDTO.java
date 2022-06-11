@@ -25,7 +25,6 @@ public class MenuDTO {
     protected Boolean alcohol;
     protected ExpenseName expenseName;
     protected final Set<FlavorName> flavorNames = new HashSet<>();
-    protected final Set<FlavorName> excludeNames = new HashSet<>();
     protected final Set<NationName> nationNames = new HashSet<>();
 
     protected String expenseValue;
@@ -53,7 +52,7 @@ public class MenuDTO {
         }
         for (String s : excludeSplit) {
             if(s.isEmpty()) continue;
-            excludeNames.add(FlavorName.lookup(s));
+            flavorNames.add(FlavorName.lookup(s));
         }
         for (String s : nationSplit) {
             if(s.isEmpty()) continue;
@@ -64,9 +63,6 @@ public class MenuDTO {
     public void collectionToString() {
         expenseValue = expenseName.getDesc();
         flavorValues = flavorNames.stream()
-                .map(FlavorName::getDesc)
-                .collect(Collectors.joining());
-        excludeValues = excludeNames.stream()
                 .map(FlavorName::getDesc)
                 .collect(Collectors.joining());
         nationValues = nationNames.stream()
