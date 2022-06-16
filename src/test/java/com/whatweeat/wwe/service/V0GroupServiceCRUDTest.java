@@ -11,12 +11,16 @@ import com.whatweeat.wwe.repository.mini_game_v0.V0GroupRepository;
 import com.whatweeat.wwe.repository.mini_game_v0.V0MemberRepository;
 import com.whatweeat.wwe.repository.mini_game_v0.V0NationRepository;
 import com.whatweeat.wwe.service.mini_game_v0.MiniGameV0ServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,18 +28,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @ActiveProfiles("test")
 class V0GroupServiceCRUDTest {
-    @Autowired
-    V0GroupRepository v0GroupRepository;
-    @Autowired
-    V0MemberRepository v0MemberRepository;
-    @Autowired
-    V0ExcludeRepository v0excludeRepository;
-    @Autowired
-    V0NationRepository v0nationRepository;
+    MiniGameV0ServiceImpl service;
+
+    @Autowired V0GroupRepository v0GroupRepository;
+    @Autowired V0MemberRepository v0MemberRepository;
+    @Autowired V0ExcludeRepository v0excludeRepository;
+    @Autowired V0NationRepository v0nationRepository;
+
+    @PersistenceContext EntityManager entityManager;
+
+    @BeforeEach
+    void init() {
+        service = new MiniGameV0ServiceImpl(null, v0GroupRepository, v0MemberRepository, null);
+    }
 
     @Test
     void idGenerator() {
-        MiniGameV0ServiceImpl service = new MiniGameV0ServiceImpl(null, v0GroupRepository, v0MemberRepository);
         service.createGroup();
         service.createGroup();
         assertThat(v0GroupRepository.count()).isEqualTo(2);
@@ -43,8 +51,6 @@ class V0GroupServiceCRUDTest {
 
     @Test @DisplayName("그룹 유효 확인")
     void groupPinNumValidCheck() {
-        MiniGameV0ServiceImpl service = new MiniGameV0ServiceImpl(null, v0GroupRepository, v0MemberRepository);
-
         int pin1 = service.createGroup();
         int pin2 = service.createGroup();
         int pin3 = (pin1 + pin2) / 2;
@@ -57,42 +63,60 @@ class V0GroupServiceCRUDTest {
 
     @Test @DisplayName("그룹 생성 & 그룹 참여")
     void createGroupAndJoinGroup() {
-        MiniGameV0ServiceImpl service = new MiniGameV0ServiceImpl(null, v0GroupRepository, v0MemberRepository);
-
         int pin = service.createGroup();
         System.out.println("pin = " + pin);
         assertThat(v0GroupRepository.count()).isEqualTo(1);
         assertThat(v0MemberRepository.count()).isEqualTo(0);
 
-        ResultSubmission hello = makeDTO("hello", pin);
+        ResultSubmission hello = makeDTO("hello", pin,
+                Set.of(NationName.KOREAN, NationName.EXOTIC),
+                Set.of(FlavorName.INTESTINE, FlavorName.SEAFOOD));
 
+        System.out.println("SAVING");
         V0Group save = service.saveResult(hello);
+
+        assertThat(save.getId()).isEqualTo(pin);
         assertThat(v0GroupRepository.count()).isEqualTo(1);
         assertThat(v0MemberRepository.count()).isEqualTo(1);
         assertThat(v0MemberRepository.findAll()).extracting("complete")
                 .containsOnly(true);
-        assertThat(v0excludeRepository.count()).isEqualTo(1);
+        assertThat(v0excludeRepository.count()).isEqualTo(2);
         assertThat(v0excludeRepository.findAll()).extracting("excludeName")
-                .containsExactly(FlavorName.INTESTINE);
+                .containsOnly(FlavorName.INTESTINE, FlavorName.SEAFOOD);
         assertThat(v0nationRepository.count()).isEqualTo(2);
         assertThat(v0nationRepository.findAll()).extracting("nationName")
                 .containsOnly(NationName.KOREAN, NationName.EXOTIC);
 
-        assertThat(save.getId()).isEqualTo(pin);
+        System.out.println("NON FETCH");
+        entityManager.flush();
+        entityManager.clear();
+        List<V0Member> alls = v0MemberRepository.findAll();
+        for (V0Member all : alls) {
+            all.getExcludes().forEach(System.out::println);
+            all.getNations().forEach(System.out::println);
+        }
+
+        System.out.println("FETCH JOIN --- V0Nation, V0Exclude 까지 한번에 조회해야 함.");
+        entityManager.flush();
+        entityManager.clear();
+        List<V0Member> members = v0MemberRepository.findAllByGroup_id(pin);
+        for (V0Member member : members) {
+            member.getExcludes().forEach(System.out::println);
+            member.getNations().forEach(System.out::println);
+        }
+        assertThat(members.size()).isEqualTo(1);
     }
 
     @Test @DisplayName("그룹 제거")
     void deleteGroup() {
-        MiniGameV0ServiceImpl service = new MiniGameV0ServiceImpl(null, v0GroupRepository, v0MemberRepository);
-
         int pin = service.createGroup();
         System.out.println("pin = " + pin);
         assertThat(v0GroupRepository.count()).isEqualTo(1);
         assertThat(v0MemberRepository.count()).isEqualTo(0);
 
-        ResultSubmission hello = makeDTO("hello", pin);
+        ResultSubmission hello = makeDTO("hello", pin,Set.of(NationName.KOREAN, NationName.EXOTIC), Set.of(FlavorName.INTESTINE));
         ResultSubmission bye = ResultSubmission.builder()
-                .pinNumber(pin)
+                .pinNumber(Integer.toString(pin))
                 .token("bye")
                 .gameAnswer(GameAnswer.builder().build())
                 .build();
@@ -113,11 +137,9 @@ class V0GroupServiceCRUDTest {
 
     @Test @DisplayName("그룹-멤버 검색")
     void findMember() {
-        MiniGameV0ServiceImpl service = new MiniGameV0ServiceImpl(null, v0GroupRepository, v0MemberRepository);
-
         int pinNum = service.createGroup();
 
-        ResultSubmission resultSubmission = makeDTO("find", pinNum);
+        ResultSubmission resultSubmission = makeDTO("find", pinNum,Set.of(NationName.KOREAN, NationName.EXOTIC), Set.of(FlavorName.INTESTINE));
         V0Group group = service.saveResult(resultSubmission);
         group = v0GroupRepository.findById(group.getId())
                 .orElseThrow(RuntimeException::new);
@@ -133,17 +155,18 @@ class V0GroupServiceCRUDTest {
         assertThat(member.getHealth()).isNull();
         assertThat(member.getNations()).extracting("nationName")
                 .containsOnly(NationName.KOREAN, NationName.EXOTIC);
+
+        List<V0Member> members = v0MemberRepository.findAllByGroup_id(group.getId());
+        assertThat(members.size()).isEqualTo(1);
     }
 
     @Test @DisplayName("멤버 제거")
     void deleteMember() {
-        MiniGameService service = new MiniGameV0ServiceImpl(null, v0GroupRepository, v0MemberRepository);
-
         assertThat(v0GroupRepository.count()).isEqualTo(0);
         int pinNum = service.createGroup();
         assertThat(v0GroupRepository.count()).isEqualTo(1);
 
-        ResultSubmission dto = makeDTO("hello", pinNum);
+        ResultSubmission dto = makeDTO("hello", pinNum,Set.of(NationName.KOREAN, NationName.EXOTIC), Set.of(FlavorName.INTESTINE));
         V0Group group = service.saveResult(dto);
         V0Member member = group.getMembers().get(0);
         assertThat(v0MemberRepository.count()).isEqualTo(1);
@@ -162,7 +185,7 @@ class V0GroupServiceCRUDTest {
         assertThat(v0nationRepository.count()).isEqualTo(0);
     }
 
-    private ResultSubmission makeDTO(String token, int pin) {
+    private ResultSubmission makeDTO(String token, int pin, Set<NationName> nationNames, Set<FlavorName> flavorNames) {
         GameAnswer gameAnswer = GameAnswer.builder()
                 .alcohol(true)
                 .greasy(true)
@@ -170,13 +193,13 @@ class V0GroupServiceCRUDTest {
                 .rice(false)
                 .health(null)
                 .build();
-        gameAnswer.getNation().addAll(Set.of(NationName.KOREAN, NationName.EXOTIC));
+        gameAnswer.getNation().addAll(nationNames);
         ResultSubmission resultSubmission = ResultSubmission.builder()
                 .gameAnswer(gameAnswer)
-                .pinNumber(pin)
+                .pinNumber(Integer.toString(pin))
                 .token(token)
                 .build();
-        resultSubmission.getDislikedFoods().add(FlavorName.INTESTINE);
+        resultSubmission.getDislikedFoods().addAll(flavorNames);
         return resultSubmission;
     }
 }

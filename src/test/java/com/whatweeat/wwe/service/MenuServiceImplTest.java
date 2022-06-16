@@ -4,9 +4,6 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.whatweeat.wwe.dto.MenuCreateDTO;
 import com.whatweeat.wwe.entity.Menu;
 import com.whatweeat.wwe.entity.MiniGameV0;
-import com.whatweeat.wwe.entity.enums.ExpenseName;
-import com.whatweeat.wwe.entity.enums.FlavorName;
-import com.whatweeat.wwe.entity.enums.NationName;
 import com.whatweeat.wwe.repository.FlavorRepository;
 import com.whatweeat.wwe.repository.MenuRepository;
 import com.whatweeat.wwe.repository.MiniGameV0Repository;
@@ -23,6 +20,7 @@ import javax.persistence.EntityManager;
 import java.util.List;
 import java.util.Set;
 
+import static com.whatweeat.wwe.dto.MenuCreateDTO.getDto;
 import static com.whatweeat.wwe.entity.enums.FlavorName.*;
 import static com.whatweeat.wwe.entity.enums.NationName.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -115,44 +113,54 @@ class MenuServiceImplTest {
                 .containsOnly("찌개/전골류 (김치/순두부/부대찌개)", "짬뽕");
     }
 
-    @Test @DisplayName("못 먹는 음식 제외 조회")
-    void findAllExceptFlavorNames() {
-        MenuCreateDTO dto = getDto("족발/보쌈", false, false, false, null,
+    @Test @DisplayName("못 먹는 음식 제외 조회1")
+    void findAllExceptFlavorNames1() {
+        MenuCreateDTO dto = getDto("족발/보쌈", "hello", false, false, false, null,
                 false, true, null,
                 Set.of(MEAT, GREASY), Set.of(KOREAN));
         menuService.save(dto);
-        dto = getDto("라멘", false, true, true, null,
+        dto = getDto("라멘", "hello", false, true, true, null,
                 false, false, null,
                 Set.of(SEAFOOD, MEAT, GREASY, BLAND), Set.of(JAPANESE));
         menuService.save(dto);
 
         assertThat(menuService.count()).isEqualTo(3);
 
-        System.out.println("------");
+        System.out.println("------1");
         List<Menu> result = menuService.findAllExceptFlavorNames(Set.of(MEAT));
         assertThat(result.size()).isEqualTo(1);
         assertThat(result).extracting("menuName").containsExactly("찌개/전골류 (김치/순두부/부대찌개)");
 
+        System.out.println("------2");
         result = menuService.findAllExceptFlavorNames(Set.of(SEAFOOD, SPICY));
         assertThat(result.size()).isEqualTo(1);
         assertThat(result).extracting("menuName").containsExactly("족발/보쌈");
     }
 
-    private MenuCreateDTO getDto(String menuName, boolean rice, boolean noodle, boolean soup, Boolean healthy,
-                                 boolean instant, boolean alcohol, ExpenseName expenseName,
-                                 Set<FlavorName> flavorNames, Set<NationName> nationNames) {
-        MenuCreateDTO dto = MenuCreateDTO.builder().menuName(menuName)
-                .menuImage("www~")
-                .rice(rice)
-                .noodle(noodle)
-                .soup(soup)
-                .healthy(healthy)
-                .instant(instant)
-                .alcohol(alcohol)
-                .expenseName(expenseName)
-                .build();
-        dto.getFlavorNames().addAll(flavorNames);
-        dto.getNationNames().addAll(nationNames);
-        return dto;
+    @Test @DisplayName("못 먹는 음식 제외 조회2")
+    void findAllExceptFlavorNames2() {
+        MenuCreateDTO dto =
+                getDto("족발/보쌈", "hello",false, false, false, null,
+                false, true, null,
+                Set.of(MEAT, GREASY), Set.of(KOREAN));
+        menuService.save(dto);
+        dto = getDto("라멘", "hello", false, true, true, null,
+                false, false, null,
+                Set.of(SEAFOOD, MEAT, GREASY, BLAND), Set.of(JAPANESE));
+        menuService.save(dto);
+        dto = getDto("비빔밥", "hello", true, false, false, true,
+                false, false, null,
+                Set.of(BLAND), Set.of(KOREAN));
+        menuService.save(dto);
+        dto = getDto("삼계탕", "hello", true, false, true, true,
+                false, false, null,
+                Set.of(MEAT), Set.of(KOREAN));
+        menuService.save(dto);
+
+        assertThat(menuService.count()).isEqualTo(5);
+
+        List<Menu> result = menuService.findAllExceptFlavorNames(Set.of(MEAT, SEAFOOD));
+        assertThat(result.size()).isEqualTo(2);
+        assertThat(result).extracting("menuName").containsOnly("찌개/전골류 (김치/순두부/부대찌개)", "비빔밥");
     }
 }

@@ -32,15 +32,6 @@ public class MenuDTO {
     protected String excludeValues;
     protected String nationValues;
 
-    public MenuDTO(Boolean rice, Boolean noodle, Boolean soup, Boolean healthy, Boolean instant, Boolean alcohol) {
-        this.rice = rice;
-        this.noodle = noodle;
-        this.soup = soup;
-        this.healthy = healthy;
-        this.instant = instant;
-        this.alcohol = alcohol;
-    }
-
     public void lookup() {
         expenseName = ExpenseName.lookup(expenseValue);
         String[] flavorSplit = flavorValues.split(", ");
