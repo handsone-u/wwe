@@ -16,15 +16,15 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class MenuServiceImpl implements MenuService {
     private final MenuRepository menuRepository;
 
-    @Override
     public Long count() {
         return menuRepository.count();
     }
 
+    @Transactional(readOnly = false)
     public Menu save(MenuCreateDTO dto) {
         Menu newMenu = new Menu(dto.getMenuName(), dto.getMenuImage());
         MiniGameV0 newMiniGameV0 = new MiniGameV0(newMenu, dto.getRice(), dto.getNoodle(), dto.getSoup(),
@@ -41,24 +41,20 @@ public class MenuServiceImpl implements MenuService {
         return menuRepository.save(newMenu);
     }
 
-    @Transactional(readOnly = true)
     public Menu findById(Long id) {
         return menuRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException());
     }
 
-    @Transactional(readOnly = true)
     public Menu findByMenuName(String menuName) {
         return menuRepository.findByMenuName(menuName)
                 .orElseThrow(() -> new RuntimeException());
     }
 
-    @Transactional(readOnly = true)
     public List<Menu> findAll() {
         return menuRepository.findAll();
     }
 
-    @Transactional(readOnly = true)
     public List<Menu> findAllExceptFlavorNames(Set<FlavorName> flavorNames) {
         return menuRepository.findAllFlavorNameNotIn(flavorNames);
     }

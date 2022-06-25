@@ -1,5 +1,6 @@
 package com.whatweeat.wwe.service.mini_game_v0;
 
+import com.whatweeat.wwe.controller.request.GameAnswer;
 import com.whatweeat.wwe.controller.request.ResultSubmission;
 import com.whatweeat.wwe.dto.MenuPoint;
 import com.whatweeat.wwe.entity.Menu;
@@ -36,40 +37,46 @@ public class MiniGameV0ServiceImpl implements MiniGameService {
     private final int BOUND = 10000;
     private final int LOOP_MAX = 1000;
 
-    public int createGroup() {
+    public int createGroup(String token) {
         int id = generatePinNum();
-        V0Group v0Group = v0GroupRepository.save(new V0Group(id));
+        V0Member host = V0Member.createHost(token);
+        V0Group group = v0GroupRepository.save(new V0Group(id, host));
+        log.debug("PIN : [{}], Host Token : [{}]", group.getId(), host.getToken());
 
-        return v0Group.getId();
+        return group.getId();
     }
 
+    @Override
+    public V0Group findGroup(Integer pin) {
+        return findGroupByPinNumber(pin);
+    }
+
+    @Transactional(readOnly = true)
     public List<V0Group> getAllGroup() {
         return v0GroupRepository.findAll();
     }
 
     public V0Group saveResult(ResultSubmission dto) {
-        V0Group group = v0GroupRepository.findById(Integer.parseInt(dto.getPinNumber()))
-                .orElseThrow(() -> new RuntimeException()); // 없는 그룹 예외
-
-        return saveGroup(dto, group);
+        return saveGroup(dto, findGroupByPinNumber(Integer.parseInt(dto.getPinNumber())));
     }
-
     private V0Group saveGroup(ResultSubmission dto, V0Group group) {
-        V0Member member = dto.toV0Member();
-        member = saveMember(dto, member);
+        boolean present = v0MemberRepository.findByTokenAndGroup(dto.getToken(), group).isPresent();
+        V0Member member = saveMember(dto, group);
+        if (present)
+            saveMember(dto, group);
+        else
+            group.addMember(member);
 
-        group.addMember(member);
         return v0GroupRepository.save(group);
     }
-
-    private V0Member saveMember(ResultSubmission dto, V0Member member) {
-        log.info("MEMBER SAVE Token = [{}]", member.getToken());
-        saveExcludes(dto.getDislikedFoods(), member);
-        saveNations(dto.getGameAnswer().getNation(), member);
+    private V0Member saveMember(ResultSubmission dto, V0Group group) {
+        V0Member member = v0MemberRepository.findByTokenAndGroup(dto.getToken(), group)
+                .orElseGet(() -> new V0Member(dto.getToken(), true));
+        log.debug("MEMBER SAVE Token = [{}]", member.getToken());
+        member = resultToMember(dto, member);
 
         return v0MemberRepository.save(member);
     }
-
     private void saveExcludes(Set<FlavorName> excludeNames, V0Member member) {
         for (FlavorName excludeName : excludeNames) {
             V0Exclude exclude = new V0Exclude(member, excludeName);
@@ -87,9 +94,8 @@ public class MiniGameV0ServiceImpl implements MiniGameService {
     public List<MenuPoint> getSoloResult(ResultSubmission resultSubmission) {
         log.debug("SOLO 추론 시작");
 
-        V0Member v0Member = resultSubmission.toV0Member();
-        saveExcludes(resultSubmission.getDislikedFoods(), v0Member);
-        saveNations(resultSubmission.getGameAnswer().getNation(), v0Member);
+        V0Member v0Member = new V0Member(resultSubmission.getToken(), true);
+        v0Member = resultToMember(resultSubmission, v0Member);
         Set<FlavorName> groupExclude = new HashSet<>();
 
         v0Member.getExcludes().forEach(exclude -> groupExclude.add(exclude.getExcludeName()));
@@ -106,13 +112,21 @@ public class MiniGameV0ServiceImpl implements MiniGameService {
         return result;
     }
 
-    @Transactional(readOnly = true)
+    private V0Member resultToMember(ResultSubmission resultSubmission, V0Member v0Member) {
+        GameAnswer answer = resultSubmission.getGameAnswer();
+        v0Member = v0Member.saveGameResult(answer.getRice(), answer.getNoodle(), answer.getSoup(), answer.getHangover(),
+                answer.getGreasy(), answer.getHealth(), answer.getAlcohol(), answer.getInstant(),
+                answer.getSpicy(), answer.getRich());
+        saveExcludes(resultSubmission.getDislikedFoods(), v0Member);
+        saveNations(resultSubmission.getGameAnswer().getNation(), v0Member);
+        return v0Member;
+    }
+
     public List<MenuPoint> getGroupResult(int pin) {
         log.debug("GROUP PIN:[{}] 추론 시작",pin);
 
         // 그룹 조회
-        V0Group v0Group = v0GroupRepository.findById(pin)
-                .orElseThrow(() -> new RuntimeException()); // 없는 그룹 예외
+        V0Group v0Group = findGroupByPinNumber(pin);
         List<V0Member> members = v0Group.getMembers();
         Set<FlavorName> groupExclude = new HashSet<>();
 
@@ -128,41 +142,50 @@ public class MiniGameV0ServiceImpl implements MiniGameService {
             log.debug("MENU Name:[{}] Point=[{}]", menuPoint.getMenuName(), menuPoint.getPoint());
             result.add(menuPoint);
         }
+        v0Group.setIsOVer(true);
+
         result.sort(Comparator.reverseOrder());
         return result;
     }
 
     public void deleteGroup(int pin) {
-        V0Group v0Group = v0GroupRepository.findById(pin)
-                .orElseThrow(() -> new RuntimeException());
+        v0GroupRepository.delete(findGroupByPinNumber(pin));
+    }
 
-        v0GroupRepository.delete(v0Group);
+    public void makeMemberInvalid(String token, Integer pin) {
+        V0Group group = findGroupByPinNumber(pin);
+        V0Member member = v0MemberRepository.findByTokenAndGroup(token, group)
+                .orElseThrow(() -> new RuntimeException("맴버를 찾을 수 없음. 잘못된 Token."));
+
+        member.makeInvalid();
     }
 
     public void deleteMember(String token, Integer pin) {
-        V0Group v0Group = v0GroupRepository.findById(pin)
-                .orElseThrow(() -> new RuntimeException()); // 없는 그룹 예외
-        V0Member v0Member = v0MemberRepository.findByTokenAndGroup(token, v0Group)
-                .orElseThrow(() -> new RuntimeException()); // 없는 맴버 예외
+        V0Group group = findGroupByPinNumber(pin);
+        V0Member member = v0MemberRepository.findByTokenAndGroup(token, group)
+                .orElseThrow(() -> new RuntimeException("맴버를 찾을 수 없음. 잘못된 Token."));
 
-        v0Group.removeMember(v0Member);
+        group.removeMember(member);
     }
 
-    public boolean pinValidCheck(int id) {
-        return v0GroupRepository.findById(id).isPresent();
+    private V0Group findGroupByPinNumber(int pin) {
+        return v0GroupRepository.findById(pin)
+                .orElseThrow(() -> new RuntimeException("그룹을 찾을 수 없음. 잘못된 PIN 번호."));
+    }
+
+    public boolean pinValidCheck(int pin) {
+        return v0GroupRepository.findById(pin).isPresent();
     }
 
     @Transactional(readOnly = true)
-    public int countMember(int id) {
-        V0Group v0Group = v0GroupRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException()); // 없는 그룹 예외
+    public int countMember(int pin) {
+        V0Group v0Group = findGroupByPinNumber(pin);
         return v0Group.getMembers().size();
     }
 
     @Transactional(readOnly = true)
-    public int countCompleteMember(int id) {
-        V0Group v0Group = v0GroupRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException()); // 없는 그룹 예외
+    public int countCompleteMember(int pin) {
+        V0Group v0Group = findGroupByPinNumber(pin);
         return (int) v0Group.getMembers().stream()
                 .filter(V0Member::getComplete)
                 .count();

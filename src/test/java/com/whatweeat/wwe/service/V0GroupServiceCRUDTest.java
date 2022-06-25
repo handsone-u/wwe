@@ -44,29 +44,38 @@ class V0GroupServiceCRUDTest {
 
     @Test
     void idGenerator() {
-        service.createGroup();
-        service.createGroup();
+        int pin1 = service.createGroup("host1");
+        int pin2 = service.createGroup("host2");
         assertThat(v0GroupRepository.count()).isEqualTo(2);
+        assertThat(v0MemberRepository.count()).isEqualTo(2);
+
+        V0Group group1 = v0GroupRepository.findById(pin1).get();
+        V0Group group2 = v0GroupRepository.findById(pin2).get();
+
+        assertThat(group1.getIsOVer()).isFalse();
+        assertThat(group2.getIsOVer()).isFalse();
     }
 
     @Test @DisplayName("그룹 유효 확인")
     void groupPinNumValidCheck() {
-        int pin1 = service.createGroup();
-        int pin2 = service.createGroup();
+        int pin1 = service.createGroup("host1");
+        int pin2 = service.createGroup("host2");
         int pin3 = (pin1 + pin2) / 2;
         assertThat(v0GroupRepository.count()).isEqualTo(2);
 
         assertThat(service.pinValidCheck(pin1)).isTrue();
         assertThat(service.pinValidCheck(pin2)).isTrue();
         assertThat(service.pinValidCheck(pin3)).isFalse();
+
+        assertThat(v0MemberRepository.count()).isEqualTo(2);
     }
 
     @Test @DisplayName("그룹 생성 & 그룹 참여")
     void createGroupAndJoinGroup() {
-        int pin = service.createGroup();
+        int pin = service.createGroup("host");
         System.out.println("pin = " + pin);
         assertThat(v0GroupRepository.count()).isEqualTo(1);
-        assertThat(v0MemberRepository.count()).isEqualTo(0);
+        assertThat(v0MemberRepository.count()).isEqualTo(1);
 
         ResultSubmission hello = makeDTO("hello", pin,
                 Set.of(NationName.KOREAN, NationName.EXOTIC),
@@ -77,9 +86,9 @@ class V0GroupServiceCRUDTest {
 
         assertThat(save.getId()).isEqualTo(pin);
         assertThat(v0GroupRepository.count()).isEqualTo(1);
-        assertThat(v0MemberRepository.count()).isEqualTo(1);
+        assertThat(v0MemberRepository.count()).isEqualTo(2);
         assertThat(v0MemberRepository.findAll()).extracting("complete")
-                .containsOnly(true);
+                .containsExactly(false, true);
         assertThat(v0excludeRepository.count()).isEqualTo(2);
         assertThat(v0excludeRepository.findAll()).extracting("excludeName")
                 .containsOnly(FlavorName.INTESTINE, FlavorName.SEAFOOD);
@@ -104,15 +113,15 @@ class V0GroupServiceCRUDTest {
             member.getExcludes().forEach(System.out::println);
             member.getNations().forEach(System.out::println);
         }
-        assertThat(members.size()).isEqualTo(1);
+        assertThat(members.size()).isEqualTo(2);
     }
 
     @Test @DisplayName("그룹 제거")
     void deleteGroup() {
-        int pin = service.createGroup();
+        int pin = service.createGroup("host");
         System.out.println("pin = " + pin);
         assertThat(v0GroupRepository.count()).isEqualTo(1);
-        assertThat(v0MemberRepository.count()).isEqualTo(0);
+        assertThat(v0MemberRepository.count()).isEqualTo(1);
 
         ResultSubmission hello = makeDTO("hello", pin,Set.of(NationName.KOREAN, NationName.EXOTIC), Set.of(FlavorName.INTESTINE));
         ResultSubmission bye = ResultSubmission.builder()
@@ -124,7 +133,7 @@ class V0GroupServiceCRUDTest {
         service.saveResult(hello);
         service.saveResult(bye);
 
-        assertThat(v0MemberRepository.count()).isEqualTo(2);
+        assertThat(v0MemberRepository.count()).isEqualTo(3);
         assertThat(v0excludeRepository.count()).isEqualTo(1);
         assertThat(v0nationRepository.count()).isEqualTo(2);
 
@@ -135,15 +144,68 @@ class V0GroupServiceCRUDTest {
         assertThat(v0nationRepository.count()).isEqualTo(0);
     }
 
+    @Test @DisplayName("멤버 미니게임 결과 무효")
+    void makeInvalid() {
+        int pinNum = service.createGroup("host");
+
+        ResultSubmission resultSubmission = makeDTO("member0",
+                pinNum,Set.of(NationName.KOREAN, NationName.EXOTIC),
+                Set.of(FlavorName.INTESTINE));
+
+        V0Group group = service.saveResult(resultSubmission);
+
+        assertThat(group.getMembers().size()).isEqualTo(2);
+        assertThat(v0GroupRepository.count()).isEqualTo(1);
+        assertThat(v0MemberRepository.count()).isEqualTo(2);
+        assertThat(v0excludeRepository.count()).isEqualTo(1);
+        assertThat(v0nationRepository.count()).isEqualTo(2);
+        assertThat(service.countCompleteMember(pinNum)).isEqualTo(1);
+        assertThat(service.countMember(pinNum)).isEqualTo(2);
+
+        service.makeMemberInvalid("member0", pinNum);
+        assertThat(v0MemberRepository.count()).isEqualTo(2);
+        assertThat(v0excludeRepository.count()).isEqualTo(0);
+        assertThat(v0nationRepository.count()).isEqualTo(0);
+        assertThat(service.countCompleteMember(pinNum)).isEqualTo(0);
+        assertThat(service.countMember(pinNum)).isEqualTo(2);
+    }
+
+    @Test @DisplayName("호스트 결과 제출")
+    void hostSubmitResult() {
+        int pinNum = service.createGroup("host");
+
+        assertThat(v0GroupRepository.count()).isEqualTo(1);
+        assertThat(v0MemberRepository.count()).isEqualTo(1);
+        assertThat(service.countMember(pinNum)).isEqualTo(1);
+        assertThat(service.countCompleteMember(pinNum)).isEqualTo(0);
+
+        ResultSubmission resultSubmission = makeDTO("host",
+                pinNum,Set.of(NationName.KOREAN, NationName.EXOTIC),
+                Set.of(FlavorName.INTESTINE));
+        V0Group group = service.saveResult(resultSubmission);
+
+        assertThat(v0MemberRepository.count()).isEqualTo(1);
+        assertThat(service.countMember(pinNum)).isEqualTo(1);
+        assertThat(service.countCompleteMember(pinNum)).isEqualTo(1);
+        assertThat(group.getHost().getToken()).isEqualTo("host");
+        assertThat(group.getHost().getComplete()).isTrue();
+        assertThat(group.getMembers().size()).isEqualTo(1);
+        assertThat(group.getIsOVer()).isFalse();
+    }
+
     @Test @DisplayName("그룹-멤버 검색")
     void findMember() {
-        int pinNum = service.createGroup();
+        int pinNum = service.createGroup("host");
 
         ResultSubmission resultSubmission = makeDTO("find", pinNum,Set.of(NationName.KOREAN, NationName.EXOTIC), Set.of(FlavorName.INTESTINE));
         V0Group group = service.saveResult(resultSubmission);
         group = v0GroupRepository.findById(group.getId())
                 .orElseThrow(RuntimeException::new);
-        V0Member member = group.getMembers().get(0);
+        V0Member host = group.getHost();
+        V0Member member = group.getMembers().get(1);
+
+        assertThat(host).isEqualTo(group.getMembers().get(0));
+        assertThat(host).isEqualTo(v0MemberRepository.findByTokenAndGroup("host", group).get());
 
         assertThat(member.getToken()).isEqualTo("find");
         assertThat(member.getComplete()).isTrue();
@@ -157,20 +219,23 @@ class V0GroupServiceCRUDTest {
                 .containsOnly(NationName.KOREAN, NationName.EXOTIC);
 
         List<V0Member> members = v0MemberRepository.findAllByGroup_id(group.getId());
-        assertThat(members.size()).isEqualTo(1);
+        assertThat(members.size()).isEqualTo(2);
     }
 
     @Test @DisplayName("멤버 제거")
     void deleteMember() {
-        assertThat(v0GroupRepository.count()).isEqualTo(0);
-        int pinNum = service.createGroup();
-        assertThat(v0GroupRepository.count()).isEqualTo(1);
+        int pinNum = service.createGroup("host");
 
         ResultSubmission dto = makeDTO("hello", pinNum,Set.of(NationName.KOREAN, NationName.EXOTIC), Set.of(FlavorName.INTESTINE));
         V0Group group = service.saveResult(dto);
-        V0Member member = group.getMembers().get(0);
-        assertThat(v0MemberRepository.count()).isEqualTo(1);
-        assertThat(group.getMembers().size()).isEqualTo(1);
+        V0Member host = group.getHost();
+        V0Member member = group.getMembers().get(1);
+
+        assertThat(host).isNotNull();
+        assertThat(host.getComplete()).isFalse();
+
+        assertThat(v0MemberRepository.count()).isEqualTo(2);
+        assertThat(group.getMembers().size()).isEqualTo(2);
         assertThat(v0excludeRepository.count()).isNotEqualTo(0);
         assertThat(v0nationRepository.count()).isNotEqualTo(0);
 
@@ -179,8 +244,8 @@ class V0GroupServiceCRUDTest {
         group = v0GroupRepository.findById(group.getId())
                 .orElseThrow(RuntimeException::new);
 
-        assertThat(group.getMembers().size()).isEqualTo(0);
-        assertThat(v0MemberRepository.count()).isEqualTo(0);
+        assertThat(group.getMembers().size()).isEqualTo(1);
+        assertThat(v0MemberRepository.count()).isEqualTo(1);
         assertThat(v0excludeRepository.count()).isEqualTo(0);
         assertThat(v0nationRepository.count()).isEqualTo(0);
     }

@@ -34,24 +34,24 @@ public class V0Member extends BaseEntity {
     private Boolean spicy;
     private Boolean rich;
 
-    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private final Set<V0Nation> nations = new HashSet<>();
 
-    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private final Set<V0Exclude> excludes = new HashSet<>();
 
     /**
      * Create Host for new Group.
      * @param token : Host's token.
      */
-    public V0Member(String token) {
+    public V0Member(String token, Boolean complete) {
         this.token = token;
-        this.complete = false;
+        this.complete = complete;
     }
 
-    public V0Member saveResult(Boolean rice, Boolean noodle, Boolean soup, Boolean hangover,
-                               Boolean greasy, Boolean health, Boolean alcohol, Boolean instant,
-                               Boolean spicy, Boolean rich) {
+    public V0Member saveGameResult(Boolean rice, Boolean noodle, Boolean soup, Boolean hangover,
+                                   Boolean greasy, Boolean health, Boolean alcohol, Boolean instant,
+                                   Boolean spicy, Boolean rich) {
         this.complete = true;
         this.rice = rice;
         this.noodle = noodle;
@@ -83,7 +83,6 @@ public class V0Member extends BaseEntity {
     }
 
     public static V0Member createHost(String token) {
-        return new V0Member(token);
+        return new V0Member(token, false);
     }
-
 }

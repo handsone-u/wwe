@@ -16,6 +16,8 @@ public class V0Group extends BaseEntity {
     @Id @Column(name = "GROUP_ID")
     private Integer id;
 
+    private Boolean isOVer = false;
+
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "HOST_ID")
     private V0Member host;

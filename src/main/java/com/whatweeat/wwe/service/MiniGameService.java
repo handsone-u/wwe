@@ -7,7 +7,9 @@ import com.whatweeat.wwe.entity.mini_game_v0.V0Group;
 import java.util.List;
 
 public interface MiniGameService {
-    int createGroup();
+    int createGroup(String token);
+
+    V0Group findGroup(Integer pin);
 
     V0Group saveResult(ResultSubmission dto);
 
@@ -21,9 +23,11 @@ public interface MiniGameService {
 
     void deleteMember(String token, Integer pin);
 
-    boolean pinValidCheck(int id);
+    void makeMemberInvalid(String token, Integer pin);
 
-    int countMember(int id);
+    boolean pinValidCheck(int pin);
 
-    int countCompleteMember(int id);
+    int countMember(int pin);
+
+    int countCompleteMember(int pin);
 }

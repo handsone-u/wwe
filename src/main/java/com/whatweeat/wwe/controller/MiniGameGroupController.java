@@ -2,12 +2,15 @@ package com.whatweeat.wwe.controller;
 
 import com.whatweeat.wwe.controller.request.ResultSubmission;
 import com.whatweeat.wwe.controller.response.GroupAndMembersDTO;
-import com.whatweeat.wwe.dto.MenuPoint;
+import com.whatweeat.wwe.controller.response.MiniGameResultWait;
+import com.whatweeat.wwe.controller.response.RecommendMenu;
+import com.whatweeat.wwe.controller.response.RecommendResponse;
 import com.whatweeat.wwe.entity.mini_game_v0.V0Group;
 import com.whatweeat.wwe.entity.mini_game_v0.V0Member;
 import com.whatweeat.wwe.service.MiniGameService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,17 +40,28 @@ public class MiniGameGroupController {
     }
 
     @PostMapping
-    public Integer createGroup() {
+    public ResponseEntity<Integer> createGroup(
+            @RequestParam String token) {
         log.info("CREATING GROUP...");
-        return miniGameV0ServiceImpl.createGroup();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(miniGameV0ServiceImpl.createGroup(token));
     }
 
     @DeleteMapping("/{pin}")
-    public Boolean deleteGroup(
+    public ResponseEntity<Boolean> deleteGroup(
             @PathVariable String pin) {
         miniGameV0ServiceImpl.deleteGroup(Integer.parseInt(pin));
         log.info("DELETING GROUP :: {}", pin);
-        return true;
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(true);
+    }
+
+    @GetMapping("/{pin}/host")
+    public Boolean isHost(
+            @PathVariable String pin,
+            @RequestParam String token) {
+        return miniGameV0ServiceImpl.findGroup(Integer.parseInt(pin))
+                .getHost().getToken().equals(token);
     }
 
     @GetMapping("/{pin}")
@@ -57,33 +71,53 @@ public class MiniGameGroupController {
         return miniGameV0ServiceImpl.pinValidCheck(Integer.parseInt(pin));
     }
 
+    @PutMapping("/{pin}")
+    public ResponseEntity<Void> putMember(
+            @PathVariable String pin,
+            @RequestParam String token) {
+        miniGameV0ServiceImpl.makeMemberInvalid(token, Integer.parseInt(pin));
+        return ResponseEntity.ok(null);
+    }
+
     @PostMapping("/{pin}")
-    public ResponseEntity<Object> submitMember(
+    public ResponseEntity<Void> submitMember(
             @PathVariable String pin,
             @RequestBody ResultSubmission resultSubmission) {
-        if(!pin.equals(resultSubmission.getPinNumber())){ log.error("'HTTP URL PIN' AND 'HTTP BODY PIN' NOT MATCHED");}
-        return ResponseEntity.ok(miniGameV0ServiceImpl.saveResult(resultSubmission).getId());
+        if(!pin.equals(resultSubmission.getPinNumber())){ log.error("HTTP URL PIN' AND 'HTTP BODY PIN' NOT MATCHED");}
+        miniGameV0ServiceImpl.saveResult(resultSubmission);
+        return ResponseEntity.ok(null);
     }
 
     @PostMapping("/solo")
-    public ResponseEntity<List<MenuPoint>> submitAndGetSoloResult(
+    public ResponseEntity<RecommendResponse> submitAndGetSoloResult(
             @RequestBody ResultSubmission resultSubmission) {
-        return ResponseEntity.ok(miniGameV0ServiceImpl.getSoloResult(resultSubmission).stream()
+        List<RecommendMenu> recommendMenus = miniGameV0ServiceImpl.getSoloResult(resultSubmission).stream()
                 .limit(3)
-                .collect(Collectors.toList()));
+                .map(menuPoint -> new RecommendMenu(menuPoint.getMenuName(), menuPoint.getMenuURL(), menuPoint.getKeywords()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(new RecommendResponse(recommendMenus, 1));
     }
 
     @GetMapping("/{pin}/gameresult")
-    public ResponseEntity<List<MenuPoint>> getGroupResult(
+    public ResponseEntity<RecommendResponse> getGroupResult(
             @PathVariable String pin) {
-        return ResponseEntity.ok(miniGameV0ServiceImpl.getGroupResult(Integer.parseInt(pin)).stream()
+        int count = miniGameV0ServiceImpl.countCompleteMember(Integer.parseInt(pin));
+        List<RecommendMenu> recommendMenus = miniGameV0ServiceImpl.getGroupResult(Integer.parseInt(pin)).stream()
                 .limit(3)
-                .collect(Collectors.toList()));
+                .map(menuPoint -> new RecommendMenu(menuPoint.getMenuName(), menuPoint.getMenuURL(), menuPoint.getKeywords()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(new RecommendResponse(recommendMenus, count));
     }
 
-    @GetMapping("/{pin}/player-count")
-    public Integer countMembers(
-            @PathVariable String pin) {
-        return miniGameV0ServiceImpl.countCompleteMember(Integer.parseInt(pin));
+    @GetMapping("/{pin}/gameresultwait")
+    public ResponseEntity<Object> countMembers(
+            @PathVariable String pin,
+            @RequestParam String token) {
+        int count = miniGameV0ServiceImpl.countCompleteMember(Integer.parseInt(pin));
+        V0Group group = miniGameV0ServiceImpl.findGroup(Integer.parseInt(pin));
+        boolean isOVer = group.getIsOVer();
+        boolean isHost = group.getHost().getToken().equals(token);
+
+        return ResponseEntity.ok(new MiniGameResultWait(count, isOVer, isHost));
     }
 }
