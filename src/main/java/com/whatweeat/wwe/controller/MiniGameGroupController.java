@@ -84,6 +84,8 @@ public class MiniGameGroupController {
             @PathVariable String pin,
             @RequestBody ResultSubmission resultSubmission) {
         if(!pin.equals(resultSubmission.getPinNumber())){ log.error("HTTP URL PIN' AND 'HTTP BODY PIN' NOT MATCHED");}
+        if(miniGameV0ServiceImpl.findGroup(Integer.parseInt(pin)).getIsOVer())
+            return ResponseEntity.ok(null);
         miniGameV0ServiceImpl.saveResult(resultSubmission);
         return ResponseEntity.ok(null);
     }

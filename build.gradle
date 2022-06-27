@@ -4,6 +4,7 @@ buildscript {
 	}
 }
 plugins {
+	id 'org.asciidoctor.jvm.convert' version "3.3.2"
 	id 'org.springframework.boot' version '2.6.6'
 	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
 	id "com.ewerk.gradle.plugins.querydsl" version "1.0.10"
@@ -18,6 +19,8 @@ configurations {
 	compileOnly {
 		extendsFrom annotationProcessor
 	}
+	querydsl.extendsFrom compileClasspath
+	asciidoctorExtensions
 }
 
 repositories {
@@ -25,6 +28,9 @@ repositories {
 }
 
 dependencies {
+//	asciidoctor 'org.springframework.restdocs:spring-restdocs-asciidoctor'
+	asciidoctorExtensions 'org.springframework.restdocs:spring-restdocs-asciidoctor'
+
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
@@ -37,6 +43,7 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
+	testImplementation('org.springframework.restdocs:spring-restdocs-mockmvc')
 
 	testCompileOnly 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
@@ -51,13 +58,26 @@ querydsl {
 sourceSets {
 	main.java.srcDir querydslDir
 }
-configurations {
-	querydsl.extendsFrom compileClasspath
-}
 compileQuerydsl {
 	options.annotationProcessorPath = configurations.querydsl
 }
 
-tasks.named('test') {
+//tasks.named('test') {
+//	useJUnitPlatform()
+//}
+
+ext {
+	snippetsDir = file('build/generated-snippets')
+}
+
+test {
+	outputs.dir snippetsDir
 	useJUnitPlatform()
+	finalizedBy 'asciidoctor'
+}
+
+asciidoctor {
+	dependsOn test
+	configurations 'asciidoctorExtensions'
+	inputs.dir snippetsDir
 }
