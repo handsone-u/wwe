@@ -16,6 +16,8 @@ public interface MenuService {
 
     Menu findByMenuName(String menuName);
 
+    Menu findOneRandom();
+
     List<Menu> findAll();
 
     List<Menu> findAllExceptFlavorNames(Set<FlavorName> flavorNames);

@@ -3,6 +3,7 @@ package com.whatweeat.wwe.controller;
 import com.whatweeat.wwe.controller.response.MenuInfo;
 import com.whatweeat.wwe.dto.MenuCreateDTO;
 import com.whatweeat.wwe.dto.MenuHomeResponse;
+import com.whatweeat.wwe.entity.Menu;
 import com.whatweeat.wwe.service.MenuService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,8 +40,9 @@ public class MenuController {
 
     @GetMapping("/random")
     public ResponseEntity<MenuHomeResponse> home() {
-        String menuName = "실험중";
-        String menuPath = "https://cdn.imweb.me/upload/S2017032758d89cbde9730/5c344a55e5613.jpg";
+        Menu menu = menuServiceImpl.findOneRandom();
+        String menuName = menu.getMenuName();
+        String menuPath = menu.getMenuImage();
         return ResponseEntity.ok(new MenuHomeResponse(menuName, menuPath));
     }
 }

@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 
 @Service
@@ -49,6 +51,12 @@ public class MenuServiceImpl implements MenuService {
     public Menu findByMenuName(String menuName) {
         return menuRepository.findByMenuName(menuName)
                 .orElseThrow(() -> new RuntimeException());
+    }
+
+    public Menu findOneRandom() {
+        int count = (int)menuRepository.count();
+        Random random = new Random(LocalDateTime.now().getSecond());
+        return menuRepository.findAll().get(random.nextInt(count));
     }
 
     public List<Menu> findAll() {
